@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+enum CursorDirection{
+  TopLeft,
+  TopRight,
+  ButtomLeft,
+  ButtomRight
+}
 class VirtualMouse extends StatefulWidget {
   final Offset initialPosition;
 
@@ -11,6 +17,7 @@ class VirtualMouse extends StatefulWidget {
 
 class _VirtualMouseState extends State<VirtualMouse> {
   Offset position = Offset.zero;
+  CursorDirection direction = CursorDirection.TopLeft;
 
   @override
   void initState() {
@@ -27,29 +34,48 @@ class _VirtualMouseState extends State<VirtualMouse> {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: position.dx,
-      top: position.dy,
-      child: GestureDetector(
-        onPanUpdate: (details) {
-          moveTo(position + details.delta);
-        },
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.black),
+        left: position.dx,
+        top: position.dy,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+          Positioned(
+            left: -20, 
+            top: -20, 
+            child: CustomPaint(
+              size: Size(30, 30), // 设置三角形的宽度和高度
+              painter: CursorTrianglePainter(),
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.mouse, size: 15, color: Colors.black),
-            ],
+          GestureDetector(
+            onPanUpdate: (details) {
+              moveTo(position + details.delta);
+            },
+            child: Icon(Icons.circle, size: 30, color: Colors.black),
           ),
-        ),
-      ),
-    );
+        ]));
+  }
+}
+
+class CursorTrianglePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()
+      ..color = Colors.black // 三角形颜色
+      ..style = PaintingStyle.fill; // 填充样式
+
+    Path path = Path();
+    path.moveTo(0, 0); // 起点：左下角
+    path.lineTo(size.width / 3, size.height); // 顶点：上中
+    path.lineTo(size.width, size.height/3); // 右下角
+    path.close(); // 闭合路径
+
+    canvas.drawPath(path, paint); // 绘制路径
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false; // 静态绘制，不需要重绘
   }
 }
 
