@@ -73,35 +73,49 @@ class _VirtualMouseState extends State<VirtualMouse> {
     return Positioned(
       left: position.dx,
       top: position.dy,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: triangleOffset.dx,
-            top: triangleOffset.dy,
-            child: CustomPaint(
-              size: Size(30, 30), // 设置三角形的宽度和高度
-              painter: CursorTrianglePainter(direction: direction),
+      child: Container(
+        width: 200,
+        height: 200,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: triangleOffset.dx,
+              top: triangleOffset.dy,
+              child: CustomPaint(
+                size: Size(30, 30), // 设置三角形的宽度和高度
+                painter: CursorTrianglePainter(direction: direction),
+              ),
             ),
-          ),
-          GestureDetector(
-            onPanUpdate: (details) {
-              moveTo(position + details.delta);
-            },
-            child: Icon(Icons.circle, size: 40, color: Colors.black),
-          ),
-          Positioned(
-            left: -lbuttonOffset.dx,
-            top: lbuttonOffset.dy,
-            child: GestureDetector(
+            GestureDetector(
               onPanUpdate: (details) {
                 moveTo(position + details.delta);
               },
-              child:
-                  Icon(Icons.rectangle_rounded, size: 30, color: Colors.black),
+              child: Icon(Icons.circle, size: 40, color: Colors.black),
             ),
-          ),
-        ],
+            Align(
+              alignment: Alignment(0.5,
+                  0.5 //lbuttonOffset.dx / MediaQuery.of(context).size.width * 2 + 100,
+                  //lbuttonOffset.dy / MediaQuery.of(context).size.height * 2 + 100,
+                  ),
+              child: TextButton(
+                onPressed: () {
+                  print('按钮被点击！');
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  '按钮',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -175,6 +189,21 @@ class _VirtualMouseDemoState extends State<VirtualMouseDemo> {
                 "虚拟鼠标控件演示",
                 style: TextStyle(fontSize: 20),
               ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              print('背景按钮');
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              '背景按钮',
+              style: TextStyle(color: Colors.white),
             ),
           ),
           // 虚拟鼠标控件
