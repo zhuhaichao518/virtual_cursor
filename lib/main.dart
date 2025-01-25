@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-enum CursorDirection { TopLeft, TopRight, BottomLeft, BottomRight }
+import 'dart:math';
 
 class VirtualMouse extends StatefulWidget {
   final Offset initialPosition;
@@ -12,9 +11,16 @@ class VirtualMouse extends StatefulWidget {
 
 class _VirtualMouseState extends State<VirtualMouse> {
   Offset position = Offset.zero;
-  CursorDirection direction = CursorDirection.TopLeft;
   bool _leftPressed = false;
   bool _rightPressed = false;
+  double _angle = 0; // 新增旋转角度状态
+
+  // 旋转控制方法
+  void _rotate() {
+    setState(() {
+      _angle += pi/2; // 每次旋转90度
+    });
+  }
 
   @override
   void initState() {
@@ -22,22 +28,20 @@ class _VirtualMouseState extends State<VirtualMouse> {
     position = widget.initialPosition;
   }
 
-  void _toggleDirection() {
-    setState(() {
-      direction = CursorDirection.values[(direction.index + 1) % 4];
-    });
-  }
+  // 处理坐标变换
+  Offset _transformDelta(Offset delta, double angle) {
+    // 将弧度转换为90度的整数倍（处理浮点精度）
+    final steps = ((angle / (pi / 2)).round()) % 4;
 
-  Offset _getDirectionOffset(double distance) {
-    switch (direction) {
-      case CursorDirection.TopLeft:
-        return Offset(distance, distance);
-      case CursorDirection.TopRight:
-        return Offset(distance, -distance);
-      case CursorDirection.BottomLeft:
-        return Offset(-distance, distance);
-      case CursorDirection.BottomRight:
-        return Offset(distance, distance);
+    switch (steps) {
+      case 1: // 90度
+        return Offset(-delta.dy, delta.dx);
+      case 2: // 180度
+        return Offset(-delta.dx, -delta.dy);
+      case 3: // 270度
+        return Offset(delta.dy, -delta.dx);
+      default: // 0度或360度
+        return delta;
     }
   }
 
@@ -46,90 +50,86 @@ class _VirtualMouseState extends State<VirtualMouse> {
     return Positioned(
       left: position.dx,
       top: position.dy,
-      child: Container(
-        width: 200,
-        height: 200,
+      child: Transform.rotate(
+        angle: _angle, //90 * (pi / 180),
         child: GestureDetector(
-        onPanUpdate: (details) {
-          setState(() {
-            position += details.delta;
-          });
-        },
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // 鼠标指针
-            CustomPaint(
-              size: Size(40, 40),
-              painter: CursorTrianglePainter(direction: direction),
-            ),
-
-            // 左键
-            Positioned(
-              left: _getDirectionOffset(-10).dx,
-              top: _getDirectionOffset(50).dy,
-              child: GestureDetector(
-                onTapDown: (_) => setState(() => _leftPressed = true),
-                onTapUp: (_) => setState(() => _leftPressed = false),
-                onTapCancel: () => setState(() => _leftPressed = false),
-                onTap: () => print('Left Click'),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _leftPressed ? Colors.blue[800] : Colors.blue,
-                    borderRadius: BorderRadius.circular(4),
+          onPanUpdate: (details) {
+            setState(() {
+              // 应用坐标变换
+              final transformedDelta = _transformDelta(details.delta, _angle);
+              position += transformedDelta;
+            });
+          },
+          child: Container(
+            width: 100,
+            height: 100,
+            color: Colors.transparent,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 鼠标指针
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  child: CustomPaint(
+                    size: Size(40, 40),
+                    painter: CursorTrianglePainter(),
                   ),
                 ),
-              ),
-            ),
 
-            // 右键
-            Positioned(
-              left: _getDirectionOffset(50).dx,
-              top: _getDirectionOffset(-10).dy,
-              child: GestureDetector(
-                onTapDown: (_) => setState(() => _rightPressed = true),
-                onTapUp: (_) => setState(() => _rightPressed = false),
-                onTapCancel: () => setState(() => _rightPressed = false),
-                onTap: () => print('Right Click'),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _rightPressed ? Colors.red[800] : Colors.red,
-                    borderRadius: BorderRadius.circular(4),
+                // 左键
+                Positioned(
+                  left: -10,
+                  top: 50,
+                  child: GestureDetector(
+                    onTap: () => print('Left Click'),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _leftPressed ? Colors.blue[800] : Colors.blue,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
-            // 切换方向按钮
-            Positioned(
-              left: 30,
-              top: 30,
-              child: IconButton(
-                icon: Icon(Icons.autorenew, size: 20),
-                onPressed: _toggleDirection,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey[200],
-                  padding: EdgeInsets.all(4),
+                // 右键
+                Positioned(
+                  left: 50,
+                  top: -10,
+                  child: GestureDetector(
+                    onTap: () => print('Right Click'),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _rightPressed ? Colors.red[800] : Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+
+                // 添加旋转按钮
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: IconButton(
+                    icon: Icon(Icons.rotate_right),
+                    onPressed: _rotate,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
 }
 
 class CursorTrianglePainter extends CustomPainter {
-  final CursorDirection direction;
-
-  CursorTrianglePainter({required this.direction});
-
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -137,37 +137,17 @@ class CursorTrianglePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-
-    switch (direction) {
-      case CursorDirection.TopLeft:
-        path.moveTo(0, 0);
-        path.lineTo(size.width / 3, size.height);
-        path.lineTo(size.width, size.height / 3);
-        break;
-      case CursorDirection.TopRight:
-        path.moveTo(size.width, 0);
-        path.lineTo(size.width / 3*2, size.height);
-        path.lineTo(0, size.height/3);
-        break;
-      case CursorDirection.BottomLeft:
-        path.moveTo(0, size.height);
-        path.lineTo(size.width / 2, size.height);
-        path.lineTo(size.width, 0);
-        break;
-      case CursorDirection.BottomRight:
-        path.moveTo(size.width, 0);
-        path.lineTo(size.width / 2, size.height);
-        path.lineTo(0, 0);
-        break;
-    }
-
+    // TopLeft 三角形绘制逻辑
+    path.moveTo(0, 0);
+    path.lineTo(size.width / 3, size.height);
+    path.lineTo(size.width, size.height / 3);
     path.close();
+    
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(CursorTrianglePainter oldDelegate) =>
-      oldDelegate.direction != direction;
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
 class VirtualMouseDemo extends StatefulWidget {
