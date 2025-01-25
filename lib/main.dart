@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum CursorDirection { TopLeft, TopRight, ButtomLeft, ButtomRight }
+enum CursorDirection { TopLeft, TopRight, BottomLeft, BottomRight }
 
 class VirtualMouse extends StatefulWidget {
   final Offset initialPosition;
@@ -13,6 +13,8 @@ class VirtualMouse extends StatefulWidget {
 class _VirtualMouseState extends State<VirtualMouse> {
   Offset position = Offset.zero;
   CursorDirection direction = CursorDirection.TopLeft;
+  bool _leftPressed = false;
+  bool _rightPressed = false;
 
   @override
   void initState() {
@@ -20,102 +22,104 @@ class _VirtualMouseState extends State<VirtualMouse> {
     position = widget.initialPosition;
   }
 
-  void moveTo(Offset newPosition) {
+  void _toggleDirection() {
     setState(() {
-      position = newPosition;
+      direction = CursorDirection.values[(direction.index + 1) % 4];
     });
   }
 
-  // 根据 direction 动态调整三角形的位置
-  Offset _getTrianglePosition() {
+  Offset _getDirectionOffset(double distance) {
     switch (direction) {
       case CursorDirection.TopLeft:
-        return Offset(-20, -20);
+        return Offset(distance, distance);
       case CursorDirection.TopRight:
-        return Offset(20, -20);
-      case CursorDirection.ButtomLeft:
-        return Offset(-20, 20);
-      case CursorDirection.ButtomRight:
-        return Offset(20, 20);
-    }
-  }
-
-  Offset _getLeftButtonPosition() {
-    switch (direction) {
-      case CursorDirection.TopLeft:
-        return Offset(-40, 0);
-      case CursorDirection.TopRight:
-        return Offset(20, -20);
-      case CursorDirection.ButtomLeft:
-        return Offset(-20, 20);
-      case CursorDirection.ButtomRight:
-        return Offset(20, 20);
-    }
-  }
-
-  Offset _getRightButtonPosition() {
-    switch (direction) {
-      case CursorDirection.TopLeft:
-        return Offset(-20, -20);
-      case CursorDirection.TopRight:
-        return Offset(20, -20);
-      case CursorDirection.ButtomLeft:
-        return Offset(-20, 20);
-      case CursorDirection.ButtomRight:
-        return Offset(20, 20);
+        return Offset(distance, -distance);
+      case CursorDirection.BottomLeft:
+        return Offset(-distance, distance);
+      case CursorDirection.BottomRight:
+        return Offset(distance, distance);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    Offset triangleOffset = _getTrianglePosition();
-    Offset lbuttonOffset = _getLeftButtonPosition();
     return Positioned(
       left: position.dx,
       top: position.dy,
       child: Container(
         width: 200,
         height: 200,
+        child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            position += details.delta;
+          });
+        },
         child: Stack(
           clipBehavior: Clip.none,
           children: [
+            // 鼠标指针
+            CustomPaint(
+              size: Size(40, 40),
+              painter: CursorTrianglePainter(direction: direction),
+            ),
+
+            // 左键
             Positioned(
-              left: triangleOffset.dx,
-              top: triangleOffset.dy,
-              child: CustomPaint(
-                size: Size(30, 30), // 设置三角形的宽度和高度
-                painter: CursorTrianglePainter(direction: direction),
-              ),
-            ),
-            GestureDetector(
-              onPanUpdate: (details) {
-                moveTo(position + details.delta);
-              },
-              child: Icon(Icons.circle, size: 40, color: Colors.black),
-            ),
-            Align(
-              alignment: Alignment(0.5,
-                  0.5 //lbuttonOffset.dx / MediaQuery.of(context).size.width * 2 + 100,
-                  //lbuttonOffset.dy / MediaQuery.of(context).size.height * 2 + 100,
-                  ),
-              child: TextButton(
-                onPressed: () {
-                  print('按钮被点击！');
-                },
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              left: _getDirectionOffset(-10).dx,
+              top: _getDirectionOffset(50).dy,
+              child: GestureDetector(
+                onTapDown: (_) => setState(() => _leftPressed = true),
+                onTapUp: (_) => setState(() => _leftPressed = false),
+                onTapCancel: () => setState(() => _leftPressed = false),
+                onTap: () => print('Left Click'),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _leftPressed ? Colors.blue[800] : Colors.blue,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
-                child: Text(
-                  '按钮',
-                  style: TextStyle(color: Colors.white),
+              ),
+            ),
+
+            // 右键
+            Positioned(
+              left: _getDirectionOffset(50).dx,
+              top: _getDirectionOffset(-10).dy,
+              child: GestureDetector(
+                onTapDown: (_) => setState(() => _rightPressed = true),
+                onTapUp: (_) => setState(() => _rightPressed = false),
+                onTapCancel: () => setState(() => _rightPressed = false),
+                onTap: () => print('Right Click'),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _rightPressed ? Colors.red[800] : Colors.red,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+
+            // 切换方向按钮
+            Positioned(
+              left: 30,
+              top: 30,
+              child: IconButton(
+                icon: Icon(Icons.autorenew, size: 20),
+                onPressed: _toggleDirection,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  padding: EdgeInsets.all(4),
                 ),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -128,13 +132,12 @@ class CursorTrianglePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()
-      ..color = Colors.black // 三角形颜色
-      ..style = PaintingStyle.fill; // 填充样式
+    final paint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.fill;
 
-    Path path = Path();
+    final path = Path();
 
-    // 根据方向绘制三角形
     switch (direction) {
       case CursorDirection.TopLeft:
         path.moveTo(0, 0);
@@ -142,16 +145,16 @@ class CursorTrianglePainter extends CustomPainter {
         path.lineTo(size.width, size.height / 3);
         break;
       case CursorDirection.TopRight:
-        path.moveTo(size.width, size.height);
-        path.lineTo(size.width / 2, 0);
-        path.lineTo(0, size.height);
+        path.moveTo(size.width, 0);
+        path.lineTo(size.width / 3*2, size.height);
+        path.lineTo(0, size.height/3);
         break;
-      case CursorDirection.ButtomLeft:
-        path.moveTo(0, 0);
+      case CursorDirection.BottomLeft:
+        path.moveTo(0, size.height);
         path.lineTo(size.width / 2, size.height);
         path.lineTo(size.width, 0);
         break;
-      case CursorDirection.ButtomRight:
+      case CursorDirection.BottomRight:
         path.moveTo(size.width, 0);
         path.lineTo(size.width / 2, size.height);
         path.lineTo(0, 0);
@@ -159,13 +162,12 @@ class CursorTrianglePainter extends CustomPainter {
     }
 
     path.close();
-    canvas.drawPath(path, paint); // 绘制路径
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false; // 静态绘制，不需要重绘
-  }
+  bool shouldRepaint(CursorTrianglePainter oldDelegate) =>
+      oldDelegate.direction != direction;
 }
 
 class VirtualMouseDemo extends StatefulWidget {
