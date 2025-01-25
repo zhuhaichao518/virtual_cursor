@@ -27,6 +27,7 @@ class _VirtualMouseState extends State<VirtualMouse> {
   bool _leftPressed = false;
   bool _rightPressed = false;
   double _angle = 0;
+  double _width = 100, _height = 100;
 
   void _rotate() {
     setState(() {
@@ -56,7 +57,24 @@ class _VirtualMouseState extends State<VirtualMouse> {
 
   void _updatePosition(Offset newPosition) {
     setState(() => position = newPosition);
-    widget.onPositionChanged?.call(newPosition);
+    final steps = ((_angle / (pi / 2)).round()) % 4;
+    double deltax = 0, deltay = 0;
+    switch (steps) {
+      case 1:
+        deltax = _width;
+        break;
+      case 2:
+        deltax = _width;
+        deltay = _height;
+        break;
+      case 3:
+        deltay = _height;
+        break;
+      default:
+        break;
+    }
+    widget.onPositionChanged
+        ?.call(Offset(newPosition.dx + deltax, newPosition.dy + deltay));
   }
 
   @override
@@ -71,12 +89,23 @@ class _VirtualMouseState extends State<VirtualMouse> {
             final transformedDelta = _transformDelta(details.delta, _angle);
             _updatePosition(position + transformedDelta);
           },
-          onPanEnd:  (_) {
-            
+          onPanEnd: (_) {
+            if (_leftPressed) {
+              setState(() {
+                _leftPressed = false;
+                widget.onLeftReleased?.call();
+              });
+            }
+            if (_rightPressed) {
+              setState(() {
+                _rightPressed = false;
+                widget.onLeftReleased?.call();
+              });
+            }
           },
           child: Container(
-            width: 100,
-            height: 100,
+            width: _width,
+            height: _height,
             color: Colors.transparent,
             child: Stack(
               clipBehavior: Clip.none,
