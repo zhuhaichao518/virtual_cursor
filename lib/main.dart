@@ -3,7 +3,20 @@ import 'dart:math';
 
 class VirtualMouse extends StatefulWidget {
   final Offset initialPosition;
-  VirtualMouse({this.initialPosition = const Offset(100, 100)});
+  final Function(Offset)? onPositionChanged;
+  final VoidCallback? onLeftPressed;
+  final VoidCallback? onLeftReleased;
+  final VoidCallback? onRightPressed;
+  final VoidCallback? onRightReleased;
+
+  VirtualMouse({
+    this.initialPosition = const Offset(100, 100),
+    this.onPositionChanged,
+    this.onLeftPressed,
+    this.onLeftReleased,
+    this.onRightPressed,
+    this.onRightReleased,
+  });
 
   @override
   _VirtualMouseState createState() => _VirtualMouseState();
@@ -13,12 +26,11 @@ class _VirtualMouseState extends State<VirtualMouse> {
   Offset position = Offset.zero;
   bool _leftPressed = false;
   bool _rightPressed = false;
-  double _angle = 0; // 新增旋转角度状态
+  double _angle = 0;
 
-  // 旋转控制方法
   void _rotate() {
     setState(() {
-      _angle += pi/2; // 每次旋转90度
+      _angle += pi / 2;
     });
   }
 
@@ -28,21 +40,23 @@ class _VirtualMouseState extends State<VirtualMouse> {
     position = widget.initialPosition;
   }
 
-  // 处理坐标变换
   Offset _transformDelta(Offset delta, double angle) {
-    // 将弧度转换为90度的整数倍（处理浮点精度）
     final steps = ((angle / (pi / 2)).round()) % 4;
-
     switch (steps) {
-      case 1: // 90度
+      case 1:
         return Offset(-delta.dy, delta.dx);
-      case 2: // 180度
+      case 2:
         return Offset(-delta.dx, -delta.dy);
-      case 3: // 270度
+      case 3:
         return Offset(delta.dy, -delta.dx);
-      default: // 0度或360度
+      default:
         return delta;
     }
+  }
+
+  void _updatePosition(Offset newPosition) {
+    setState(() => position = newPosition);
+    widget.onPositionChanged?.call(newPosition);
   }
 
   @override
@@ -51,14 +65,14 @@ class _VirtualMouseState extends State<VirtualMouse> {
       left: position.dx,
       top: position.dy,
       child: Transform.rotate(
-        angle: _angle, //90 * (pi / 180),
+        angle: _angle,
         child: GestureDetector(
           onPanUpdate: (details) {
-            setState(() {
-              // 应用坐标变换
-              final transformedDelta = _transformDelta(details.delta, _angle);
-              position += transformedDelta;
-            });
+            final transformedDelta = _transformDelta(details.delta, _angle);
+            _updatePosition(position + transformedDelta);
+          },
+          onPanEnd:  (_) {
+            
           },
           child: Container(
             width: 100,
@@ -67,7 +81,6 @@ class _VirtualMouseState extends State<VirtualMouse> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // 鼠标指针
                 Positioned(
                   left: 0,
                   top: 0,
@@ -76,13 +89,18 @@ class _VirtualMouseState extends State<VirtualMouse> {
                     painter: CursorTrianglePainter(),
                   ),
                 ),
-
-                // 左键
                 Positioned(
-                  left: -10,
+                  left: 5,
                   top: 50,
                   child: GestureDetector(
-                    onTap: () => print('Left Click'),
+                    onTapDown: (_) {
+                      setState(() => _leftPressed = true);
+                      widget.onLeftPressed?.call();
+                    },
+                    onTapUp: (_) {
+                      setState(() => _leftPressed = false);
+                      widget.onLeftReleased?.call();
+                    },
                     child: Container(
                       width: 40,
                       height: 40,
@@ -93,13 +111,18 @@ class _VirtualMouseState extends State<VirtualMouse> {
                     ),
                   ),
                 ),
-
-                // 右键
                 Positioned(
                   left: 50,
-                  top: -10,
+                  top: 5,
                   child: GestureDetector(
-                    onTap: () => print('Right Click'),
+                    onTapDown: (_) {
+                      setState(() => _rightPressed = true);
+                      widget.onRightPressed?.call();
+                    },
+                    onTapUp: (_) {
+                      setState(() => _rightPressed = false);
+                      widget.onRightReleased?.call();
+                    },
                     child: Container(
                       width: 40,
                       height: 40,
@@ -110,8 +133,6 @@ class _VirtualMouseState extends State<VirtualMouse> {
                     ),
                   ),
                 ),
-
-                // 添加旋转按钮
                 Positioned(
                   right: 0,
                   bottom: 0,
@@ -137,12 +158,10 @@ class CursorTrianglePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final path = Path();
-    // TopLeft 三角形绘制逻辑
     path.moveTo(0, 0);
     path.lineTo(size.width / 3, size.height);
     path.lineTo(size.width, size.height / 3);
     path.close();
-    
     canvas.drawPath(path, paint);
   }
 
@@ -156,14 +175,13 @@ class VirtualMouseDemo extends StatefulWidget {
 }
 
 class _VirtualMouseDemoState extends State<VirtualMouseDemo> {
-  Offset mousePosition = Offset(100, 100);
+  Offset _lastPosition = Offset(100, 100);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // 模拟屏幕内容
           Container(
             color: Colors.grey[200],
             child: Center(
@@ -174,9 +192,7 @@ class _VirtualMouseDemoState extends State<VirtualMouseDemo> {
             ),
           ),
           TextButton(
-            onPressed: () {
-              print('背景按钮');
-            },
+            onPressed: () => print('背景按钮'),
             style: TextButton.styleFrom(
               backgroundColor: Colors.blue,
               shape: RoundedRectangleBorder(
@@ -188,9 +204,16 @@ class _VirtualMouseDemoState extends State<VirtualMouseDemo> {
               style: TextStyle(color: Colors.white),
             ),
           ),
-          // 虚拟鼠标控件
           VirtualMouse(
-            initialPosition: mousePosition,
+            initialPosition: _lastPosition,
+            onPositionChanged: (pos) {
+              print('位置更新：(${pos.dx}, ${pos.dy})');
+              setState(() => _lastPosition = pos);
+            },
+            onLeftPressed: () => print('左键按下'),
+            onLeftReleased: () => print('左键释放'),
+            onRightPressed: () => print('右键按下'),
+            onRightReleased: () => print('右键释放'),
           ),
         ],
       ),
